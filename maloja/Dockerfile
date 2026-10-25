@@ -13,6 +13,7 @@
 ###############################################################################
 
 ARG MALOJA_VERSION=3.2.9
+ARG RELEASE_NOTES_URL=https://github.com/krateng/maloja/releases/tag/v
 FROM krateng/maloja:${MALOJA_VERSION}
 
 # jq is used by run.sh to read the Supervisor-provided add-on options.
