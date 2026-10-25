@@ -159,6 +159,7 @@ jobs:
             echo "=== Publishing $ADDON $NEW → $IMAGE ==="
             docker buildx build \
               --platform linux/arm64 \
+              --provenance=false \
               --cache-from type=gha,scope="$ADDON" \
               --cache-to type=gha,scope="$ADDON",mode=max \
               --push \
