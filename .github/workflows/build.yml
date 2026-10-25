@@ -3,17 +3,21 @@ name: Build add-on images
 on:
   push:
     branches: [main, master]
+  schedule:
+    - cron: "23 4 * * *"   # daily self-heal pass (UTC)
   workflow_dispatch:
     inputs:
       addon:
-        description: "Add-on folder to build (empty = all)"
+        description: "Add-on folder to force-build (empty = build only unpublished versions)"
         required: false
         default: ""
 
 concurrency:
   # Serialize builds: a newer push cancels the in-flight run (which by
   # design has not committed its version yet), so two runs can never
-  # both compute the same next version and race each other.
+  # both compute the same next version and race each other. A cancelled
+  # run is harmless: the next run's self-heal check rebuilds anything
+  # whose advertised version never made it to GHCR.
   group: addon-build
   cancel-in-progress: true
 
@@ -33,38 +37,8 @@ jobs:
         with:
           fetch-depth: 0   # history needed to diff against the previous push
 
-      - name: Determine which add-ons to build
-        id: list
-        run: |
-          set -eu
-          INPUT="${{ github.event.inputs.addon }}"
-          if [ -n "$INPUT" ]; then
-            ADDONS="$INPUT"
-          elif [ "${{ github.event_name }}" = "push" ]; then
-            BEFORE="${{ github.event.before }}"
-            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-              # New branch or un-diffable push: build everything.
-              ADDONS=$(find . -mindepth 2 -maxdepth 2 -name config.json \
-                       -printf '%h\n' | sed 's|^\./||' | tr '\n' ' ')
-            else
-              ADDONS=""
-              for DIR in $(git diff --name-only "$BEFORE" "${{ github.sha }}" \
-                             | cut -d/ -f1 | sort -u); do
-                [ -f "$DIR/config.json" ] && ADDONS="$ADDONS$DIR "
-              done
-            fi
-          else
-            # Manual run with no folder selected: build everything.
-            ADDONS=$(find . -mindepth 2 -maxdepth 2 -name config.json \
-                     -printf '%h\n' | sed 's|^\./||' | tr '\n' ' ')
-          fi
-          if [ -z "$ADDONS" ]; then
-            echo "No add-on folders changed — nothing to build."
-          else
-            echo "Building:$ADDONS"
-          fi
-          echo "addons=$ADDONS" >> "$GITHUB_OUTPUT"
-
+      # Buildx and GHCR login run BEFORE the add-on listing: the self-heal
+      # check below needs both to inspect published image tags.
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -74,6 +48,50 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine which add-ons to build
+        id: list
+        run: |
+          set -eu
+          INPUT="${{ github.event.inputs.addon }}"
+          ADDONS=""
+
+          # 1) Force-build via workflow_dispatch input
+          if [ -n "$INPUT" ]; then
+            ADDONS="$INPUT"
+
+          # 2) Add-ons changed by this push. An un-diffable push (new branch)
+          #    adds nothing here — the self-heal loop below covers anything
+          #    that is actually missing.
+          elif [ "${{ github.event_name }}" = "push" ]; then
+            BEFORE="${{ github.event.before }}"
+            if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+              for DIR in $(git diff --name-only "$BEFORE" "${{ github.sha }}" \
+                             | cut -d/ -f1 | sort -u); do
+                [ -f "$DIR/config.json" ] && ADDONS="$ADDONS$DIR "
+              done
+            fi
+          fi
+
+          # 3) Self-heal: rebuild any add-on whose advertised version is not
+          #    in GHCR — e.g. a run cancelled mid-build by a newer push.
+          #    Guarantees the repo never advertises an unpublishable version
+          #    for longer than one run.
+          for DIR in $(find . -mindepth 2 -maxdepth 2 -name config.json \
+                         -printf '%h\n' | sed 's|^\./||'); do
+            VER=$(jq -r .version "$DIR/config.json")
+            if ! docker buildx imagetools inspect \
+                 "ghcr.io/${GITHUB_REPOSITORY,,}/$DIR:$VER" >/dev/null 2>&1; then
+              case " $ADDONS " in *" $DIR "*) ;; *) ADDONS="$ADDONS$DIR " ;; esac
+            fi
+          done
+
+          if [ -z "${ADDONS// /}" ]; then
+            echo "Nothing to build — all advertised versions are published."
+          else
+            echo "Building:$ADDONS"
+          fi
+          echo "addons=$ADDONS" >> "$GITHUB_OUTPUT"
 
       - name: Bump versions, build and push images
         env:
@@ -86,9 +104,10 @@ jobs:
             CURRENT=$(jq -r .version "$CONFIG")
             SUFFIX="${CURRENT#*-}"
             case "$SUFFIX" in ''|*[!0-9]*) SUFFIX=0 ;; esac
-            # The Dockerfile ARG is the upstream source of truth (Renovate bumps it).
-            # Rewind has no version ARG (digest pin) — fall back to the version's
-            # upstream part for it.
+            # The Dockerfile ARG is the upstream source of truth (Renovate
+            # bumps it); config.json's version only catches up in the commit
+            # below. Rewind pins a digest instead — no version ARG — so fall
+            # back to the upstream part of the current version for it.
             UPSTREAM=$(grep -m1 -oP '^ARG [A-Z_]*VERSION=\K\S+' "$ADDON/Dockerfile" || true)
             [ -n "$UPSTREAM" ] || UPSTREAM="${CURRENT%%-*}"
             NEW="$UPSTREAM-$((SUFFIX + 1))"
