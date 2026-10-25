@@ -56,9 +56,11 @@ jobs:
           INPUT="${{ github.event.inputs.addon }}"
           ADDONS=""
 
-          # 1) Force-build via workflow_dispatch input
+          # 1) Force-build via workflow_dispatch input. Normalize whitespace
+          #    and keep the same trailing-space format as the other
+          #    sources, so the appends below stay space-separated.
           if [ -n "$INPUT" ]; then
-            ADDONS="$INPUT"
+            ADDONS="$(echo $INPUT) "
 
           # 2) Add-ons changed by this push. An un-diffable push (new branch)
           #    adds nothing here — the self-heal loop below covers anything
@@ -75,14 +77,22 @@ jobs:
 
           # 3) Self-heal: rebuild any add-on whose advertised version is not
           #    in GHCR — e.g. a run cancelled mid-build by a newer push.
-          #    Guarantees the repo never advertises an unpublishable version
-          #    for longer than one run.
+          #    Only "not found"-class errors count as missing: on a transient
+          #    registry error the add-on is left alone, otherwise a GHCR
+          #    hiccup would bump and republish every version pointlessly.
           for DIR in $(find . -mindepth 2 -maxdepth 2 -name config.json \
                          -printf '%h\n' | sed 's|^\./||'); do
             VER=$(jq -r .version "$DIR/config.json")
-            if ! docker buildx imagetools inspect \
-                 "ghcr.io/${GITHUB_REPOSITORY,,}/$DIR:$VER" >/dev/null 2>&1; then
-              case " $ADDONS " in *" $DIR "*) ;; *) ADDONS="$ADDONS$DIR " ;; esac
+            if ! ERR="$(docker buildx imagetools inspect \
+                 "ghcr.io/${GITHUB_REPOSITORY,,}/$DIR:$VER" 2>&1 >/dev/null)"; then
+              case "$ERR" in
+                *"not found"*|*"unknown"*|*"does not exist"*)
+                  case " $ADDONS " in *" $DIR "*) ;; *) ADDONS="$ADDONS$DIR " ;; esac
+                  ;;
+                *)
+                  echo "::warning::Could not verify $DIR:$VER against GHCR (registry error) — not rebuilding it this run"
+                  ;;
+              esac
             fi
           done
 
@@ -114,6 +124,37 @@ jobs:
             jq --arg v "$NEW" '.version = $v' "$CONFIG" > /tmp/config.json
             mv /tmp/config.json "$CONFIG"
 
+            # Generate the add-on changelog. Home Assistant renders
+            # CHANGELOG.md from the add-on folder in this store repo on
+            # the add-on page and in the update dialog; each entry links
+            # the exact upstream release notes it packages.
+            #
+            # Fully generic: an add-on that wants linked release notes
+            # declares the URL base in its Dockerfile next to its version
+            # pin (CI appends the upstream version):
+            #   ARG RELEASE_NOTES_URL=https://github.com/<org>/<repo>/releases/tag/v
+            # Add-ons without the ARG (e.g. Rewind's digest repack) get
+            # a plain repack note instead of a link.
+            NAME=$(jq -r .name "$CONFIG")
+            RELEASE_NOTES_URL=$(grep -m1 -oP '^ARG RELEASE_NOTES_URL=\K\S+' "$ADDON/Dockerfile" || true)
+            if [ -n "$RELEASE_NOTES_URL" ]; then
+              UPSTREAM_LINK="[${NAME} v${UPSTREAM}](${RELEASE_NOTES_URL}${UPSTREAM})"
+            else
+              UPSTREAM_LINK="repackaged upstream image (upstream publishes no release notes)"
+            fi
+            CHANGELOG="$ADDON/CHANGELOG.md"
+            if ! grep -q "^## ${NEW} " "$CHANGELOG" 2>/dev/null; then
+              TMP="$(mktemp)"
+              {
+                echo "# Changelog"
+                echo ""
+                echo "## ${NEW} — ${UPSTREAM_LINK}"
+                echo ""
+                tail -n +2 "$CHANGELOG" 2>/dev/null || true
+              } > "$TMP"
+              mv "$TMP" "$CHANGELOG"
+            fi
+
             IMAGE="ghcr.io/${REPO,,}/$ADDON"
             echo "=== Publishing $ADDON $NEW → $IMAGE ==="
             docker buildx build \
@@ -132,13 +173,17 @@ jobs:
       # One commit for every bumped add-on — a single push, nothing to race.
       - name: Commit bumped versions back to the branch
         run: |
-          if git diff --quiet; then
+          # git add -A (not `git commit -am`): the per-add-on CHANGELOG.md
+          # is a brand-new untracked file on its first build, which -a
+          # would silently skip.
+          git add -A
+          if git diff --cached --quiet; then
             echo "Nothing built — no version bumps to commit."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "chore: publish add-on images [skip ci]"
+          git commit -m "chore: publish add-on images [skip ci]"
           git pull --rebase origin "${{ github.ref_name }}" || true
           if ! git push origin "HEAD:${{ github.ref_name }}"; then
             echo "Branch moved during the build; version commit not pushed (images are safely in GHCR)."
