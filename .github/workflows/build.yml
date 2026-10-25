@@ -84,9 +84,13 @@ jobs:
           for ADDON in $ADDONS; do
             CONFIG="$ADDON/config.json"
             CURRENT=$(jq -r .version "$CONFIG")
-            UPSTREAM="${CURRENT%%-*}"
             SUFFIX="${CURRENT#*-}"
             case "$SUFFIX" in ''|*[!0-9]*) SUFFIX=0 ;; esac
+            # The Dockerfile ARG is the upstream source of truth (Renovate bumps it).
+            # Rewind has no version ARG (digest pin) — fall back to the version's
+            # upstream part for it.
+            UPSTREAM=$(grep -m1 -oP '^ARG [A-Z_]*VERSION=\K\S+' "$ADDON/Dockerfile" || true)
+            [ -n "$UPSTREAM" ] || UPSTREAM="${CURRENT%%-*}"
             NEW="$UPSTREAM-$((SUFFIX + 1))"
             jq --arg v "$NEW" '.version = $v' "$CONFIG" > /tmp/config.json
             mv /tmp/config.json "$CONFIG"
