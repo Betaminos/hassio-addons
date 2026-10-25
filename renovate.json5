@@ -20,15 +20,6 @@
       "depNameTemplate": "NeptuneHub/AudioMuse-AI",
       "extractVersionTemplate": "^v(?<version>.*)$"
     },
-    {
-      "customType": "regex",
-      "description": "AudioMuse-AI upstream part of the add-on version (packaging suffix kept)",
-      "managerFilePatterns": ["/^audiomuse-ai/config\\.json$/"],
-      "matchStrings": ["\"version\":\\s*\"(?<currentValue>\\d+\\.\\d+\\.\\d+)-\\d+\""],
-      "datasourceTemplate": "github-releases",
-      "depNameTemplate": "NeptuneHub/AudioMuse-AI",
-      "extractVersionTemplate": "^v(?<version>.*)$"
-    },
 
     // Maloja: Docker Hub tags are bare semver (upstream CI uses
     // metadata-action pattern={{version}}, e.g. krateng/maloja:3.2.7).
@@ -40,14 +31,7 @@
       "datasourceTemplate": "docker",
       "depNameTemplate": "krateng/maloja"
     },
-    {
-      "customType": "regex",
-      "description": "Maloja upstream part of the add-on version (packaging suffix kept)",
-      "managerFilePatterns": ["/^maloja/config\\.json$/"],
-      "matchStrings": ["\"version\":\\s*\"(?<currentValue>\\d+\\.\\d+\\.\\d+)-\\d+\""],
-      "datasourceTemplate": "docker",
-      "depNameTemplate": "krateng/maloja"
-    },
+
     // Rewind: upstream publishes only a `latest` Docker tag, so the image
     // is wrapped digest-pinned. Renovate opens a PR with the new digest
     // whenever :latest is republished; merging lets CI rebuild and bump
