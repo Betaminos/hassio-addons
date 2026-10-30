@@ -10,7 +10,7 @@
 
 FROM debian:bookworm-slim
 
-ARG AUDIOMUSE_VERSION=3.6.4
+ARG AUDIOMUSE_VERSION=3.7.0
 ARG RELEASE_NOTES_URL=https://github.com/NeptuneHub/AudioMuse-AI/releases/tag/v
 ENV DEBIAN_FRONTEND=noninteractive
 
