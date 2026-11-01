@@ -60,6 +60,10 @@ jobs:
           #    and keep the same trailing-space format as the other
           #    sources, so the appends below stay space-separated.
           if [ -n "$INPUT" ]; then
+            if [ ! -f "$INPUT/config.json" ]; then
+              echo "::error::No add-on found at '$INPUT' (folder must contain a config.json)."
+              exit 1
+            fi
             ADDONS="$(echo $INPUT) "
 
           # 2) Add-ons changed by this push. An un-diffable push (new branch)
@@ -111,16 +115,24 @@ jobs:
           set -eu
           for ADDON in $ADDONS; do
             CONFIG="$ADDON/config.json"
-            CURRENT=$(jq -r .version "$CONFIG")
-            SUFFIX="${CURRENT#*-}"
-            case "$SUFFIX" in ''|*[!0-9]*) SUFFIX=0 ;; esac
             # The Dockerfile ARG is the upstream source of truth (Renovate
             # bumps it); config.json's version only catches up in the commit
-            # below. Rewind pins a digest instead — no version ARG — so fall
-            # back to the upstream part of the current version for it.
+            # below, so config.json still holds the LAST PUBLISHED version
+            # here. Rewind pins a digest instead — no version ARG — so fall
+            # back to the published upstream part for it.
+            CURRENT=$(jq -r .version "$CONFIG")
+            PUBLISHED_UP="${CURRENT%%-*}"
+            SUFFIX="${CURRENT#*-}"
+            case "$SUFFIX" in ''|*[!0-9]*) SUFFIX=0 ;; esac
             UPSTREAM=$(grep -m1 -oP '^ARG [A-Z_]*VERSION=\K\S+' "$ADDON/Dockerfile" || true)
-            [ -n "$UPSTREAM" ] || UPSTREAM="${CURRENT%%-*}"
-            NEW="$UPSTREAM-$((SUFFIX + 1))"
+            [ -n "$UPSTREAM" ] || UPSTREAM="$PUBLISHED_UP"
+            if [ "$UPSTREAM" = "$PUBLISHED_UP" ]; then
+              # Same upstream release → repackaging: increment the suffix.
+              NEW="$UPSTREAM-$((SUFFIX + 1))"
+            else
+              # New upstream minor/major release → reset the suffix to 0.
+              NEW="$UPSTREAM-0"
+            fi
             jq --arg v "$NEW" '.version = $v' "$CONFIG" > /tmp/config.json
             mv /tmp/config.json "$CONFIG"
 
@@ -185,7 +197,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "chore: publish add-on images [skip ci]"
-          git pull --rebase origin "${{ github.ref_name }}" || true
-          if ! git push origin "HEAD:${{ github.ref_name }}"; then
-            echo "Branch moved during the build; version commit not pushed (images are safely in GHCR)."
-          fi
+          for i in 1 2 3; do
+            git rebase --abort 2>/dev/null || true
+            if git pull --rebase origin "${{ github.ref_name }}" && \
+               git push origin "HEAD:${{ github.ref_name }}"; then
+              exit 0
+            fi
+            echo "Publish attempt $i failed (branch moved or push rejected); retrying…"
+            sleep 10
+          done
+          echo "::error::Version commit could not be pushed — repo is stale vs GHCR. Re-run 'Build add-on images' to reconcile."
+          exit 1
