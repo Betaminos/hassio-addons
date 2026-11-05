@@ -1,7 +1,18 @@
 # hassio-addons
 
+[![Build add-on images](https://github.com/Betaminos/hassio-addons/actions/workflows/build.yml/badge.svg)](https://github.com/Betaminos/hassio-addons/actions/workflows/build.yml)
+
 Home Assistant OS add-on store for self-hosted music tools around
 [Navidrome](https://www.navidrome.org), targeting **ARM64 (Raspberry Pi 5)**.
+
+| Add-on | What it does | Web UI | Upstream | License |
+| ------ | ------------ | ------ | -------- | ------- |
+| [AudioMuse-AI](#audiomuse-ai) | Sonic analysis, clustering, smart playlists | Port 8000 | [NeptuneHub/AudioMuse-AI](https://github.com/NeptuneHub/AudioMuse-AI) | AGPL-3.0 |
+| [Maloja](#maloja) | Scrobble database, listening statistics and charts | Port 42010 | [krateng/maloja](https://github.com/krateng/maloja) | GPL-3.0 |
+| [Rewind](#rewind) | Year-in-review listening stats with music playback | Port 42000 | [BernardoGiordano/rewind](https://github.com/BernardoGiordano/rewind) | GPL-3.0 |
+
+All add-ons are **aarch64-only** and are unmodified repackages of pinned
+upstream releases (see [Third-party licenses](#third-party-licenses)).
 
 ## Add-ons
 
@@ -21,9 +32,9 @@ start, set the admin password on the add-on's Configuration tab — it refuses
 to start without one.
 
 ### Rewind
-
-Spotify Wrapped–style listening stats for Navidrome (BernardoGiordano/rewind)
-— stories-style yearly recap, top songs/artists/albums/genres, listening
+Spotify Wrapped–style listening stats for Navidrome
+([BernardoGiordano/rewind](https://github.com/BernardoGiordano/rewind)) —
+stories-style yearly recap, top songs/artists/albums/genres, listening
 clock, streaks, with music streamed from Navidrome during the slides. Reads
 the live Navidrome database directly from the share (read-only). Web UI on
 port 42000. Requires the Navidrome add-on on this instance with its data
@@ -32,9 +43,25 @@ folder in `/share/navidrome` (`data_folder: /share/navidrome`), so the live
 
 ## Install
 
+**Requirements:** the add-on store needs Home Assistant **OS or Supervised**
+(it does not work on Container installs), and every add-on in this store is
+**aarch64-only** (e.g. Raspberry Pi 5).
+
 1. Settings → Add-ons → Add-on Store → ⋮ → Manage add-on repositories → add
    `https://github.com/betaminos/hassio-addons`.
 2. Install the add-on you want, configure, start.
+
+## Support
+
+- **Packaging, installation or wiring problems** (add-on won't start, ports,
+  updates): open an issue in
+  [this repository](https://github.com/Betaminos/hassio-addons/issues).
+- **Bugs in the add-on's behavior**: report those upstream —
+  [AudioMuse-AI](https://github.com/NeptuneHub/AudioMuse-AI/issues),
+  [Maloja](https://github.com/krateng/maloja/issues),
+  [Rewind](https://github.com/BernardoGiordano/rewind/issues). The images
+  here ship the upstream software unmodified, so behavioral fixes have to
+  happen there.
 
 ## Wiring AudioMuse-AI to Navidrome
 
@@ -48,7 +75,7 @@ folder in `/share/navidrome` (`data_folder: /share/navidrome`), so the live
 ## Wiring Maloja to Navidrome
 
 1. Start the Maloja add-on and open `http://<pi-ip>:42010`.
-2. In Maloja's settings, create an API key (one per scrobber is recommended).
+2. In Maloja's settings, create an API key (one per scrobbler is recommended).
 3. In Navidrome, set `ListenBrainz.BaseURL` to
    `http://<pi-ip>:42010/apis/listenbrainz/1/`
    (env: `ND_LISTENBRAINZ_BASEURL`).
@@ -90,12 +117,12 @@ it is not part of any published add-on image or add-on data.
   [AGPL-3.0](https://github.com/NeptuneHub/AudioMuse-AI/blob/main/LICENSE).
   Source: https://github.com/NeptuneHub/AudioMuse-AI (this image embeds an
   unmodified build of the upstream release pinned in the add-on's
-  `config.json`).
+  `Dockerfile`).
 - **Maloja** © krateng —
   [GPL-3.0](https://github.com/krateng/maloja/blob/master/LICENSE).
   Source: https://github.com/krateng/maloja (this image embeds an unmodified
-  copy of the official `krateng/maloja` Docker image, at the upstream
-  release pinned in the add-on's `config.json`).
+  copy of the official `krateng/maloja` Docker image, at the upstream tag
+  pinned in the add-on's `Dockerfile`).
 - **Rewind** © Bernardo Giordano —
   [GPL-3.0](https://github.com/BernardoGiordano/rewind/blob/master/LICENSE).
   Source: https://github.com/BernardoGiordano/rewind (this image embeds an
