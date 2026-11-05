@@ -154,18 +154,22 @@ jobs:
             else
               UPSTREAM_LINK="repackaged upstream image (upstream publishes no release notes)"
             fi
+            # Single-entry changelog: every publish overwrites the file, so
+            # it always shows exactly the version HA is about to install,
+            # with a link to that release's upstream notes. Old entries are
+            # not lost (they stay in Git history), and since each entry is
+            # only a pointer, keeping more than the latest adds nothing.
+            # Written unconditionally: rebuilding the same version just
+            # rewrites identical content, which produces no git diff.
             CHANGELOG="$ADDON/CHANGELOG.md"
-            if ! grep -q "^## ${NEW} " "$CHANGELOG" 2>/dev/null; then
-              TMP="$(mktemp)"
-              {
-                echo "# Changelog"
-                echo ""
-                echo "## ${NEW} — ${UPSTREAM_LINK}"
-                echo ""
-                tail -n +2 "$CHANGELOG" 2>/dev/null || true
-              } > "$TMP"
-              mv "$TMP" "$CHANGELOG"
-            fi
+            {
+              echo "# Changelog"
+              echo ""
+              echo "This add-on repackages upstream software and ships no changes of its own."
+              echo "See the upstream release notes for the packaged release:"
+              echo ""
+              echo "## ${NEW} — ${UPSTREAM_LINK}"
+            } > "$CHANGELOG"
 
             IMAGE="ghcr.io/${REPO,,}/$ADDON"
             echo "=== Publishing $ADDON $NEW → $IMAGE ==="
