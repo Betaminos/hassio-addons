@@ -108,6 +108,7 @@ jobs:
           echo "addons=$ADDONS" >> "$GITHUB_OUTPUT"
 
       - name: Bump versions, build and push images
+        if: steps.list.outputs.addons != ''
         env:
           ADDONS: ${{ steps.list.outputs.addons }}
           REPO: ${{ github.repository }}
@@ -189,6 +190,7 @@ jobs:
       # GHCR, so the repo never advertises a version that cannot be pulled.
       # One commit for every bumped add-on — a single push, nothing to race.
       - name: Commit bumped versions back to the branch
+        if: steps.list.outputs.addons != ''
         run: |
           # git add -A (not `git commit -am`): the per-add-on CHANGELOG.md
           # is a brand-new untracked file on its first build, which -a
