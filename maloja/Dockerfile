@@ -12,7 +12,7 @@
 # "version" upstream part, push — CI bumps the packaging suffix and publishes.
 ###############################################################################
 
-ARG MALOJA_VERSION=3.2.9
+ARG MALOJA_VERSION=3.2.10
 ARG RELEASE_NOTES_URL=https://github.com/krateng/maloja/releases/tag/v
 FROM krateng/maloja:${MALOJA_VERSION}
 
