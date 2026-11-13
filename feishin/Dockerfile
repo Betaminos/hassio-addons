@@ -22,6 +22,12 @@ ARG FEISHIN_VERSION=1.17.0
 ARG RELEASE_NOTES_URL=https://github.com/jeffvli/feishin/releases/tag/v
 FROM ghcr.io/jeffvli/feishin:${FEISHIN_VERSION}
 
+# Re-scope the version into this build stage: ARGs declared before FROM are
+# not in scope after it. The bare ARG inherits the default from the global
+# declaration above; without it, ${FEISHIN_VERSION} in the RUN below expands
+# to an empty string and the license download 404s on .../v/LICENSE.
+ARG FEISHIN_VERSION
+
 # jq is used by run.sh to read the Supervisor-provided add-on options.
 # GPL-3.0 compliance: ship the license text alongside the app
 # (same pattern as AudioMuse-AI and Rewind).
