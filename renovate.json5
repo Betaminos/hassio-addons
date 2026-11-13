@@ -32,6 +32,17 @@
       "depNameTemplate": "krateng/maloja"
     },
 
+    // Feishin: GHCR publishes bare semver tags (e.g. 1.17.0) alongside
+    // "latest" and major-only aliases; the packageRule below filters those.
+    {
+      "customType": "regex",
+      "description": "Feishin image tag pin in the add-on Dockerfile",
+      "managerFilePatterns": ["/^feishin/Dockerfile$/"],
+      "matchStrings": ["ARG FEISHIN_VERSION=(?<currentValue>\\S+)"],
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "ghcr.io/jeffvli/feishin"
+    },
+
     // Rewind: upstream publishes only a `latest` Docker tag, so the image
     // is wrapped digest-pinned. Renovate opens a PR with the new digest
     // whenever :latest is republished; merging lets CI rebuild and bump
@@ -54,6 +65,14 @@
       "matchDatasources": ["docker"],
       "matchDepNames": ["krateng/maloja"],
       "allowedVersions": "/^[0-9]+\\.[0-9]+\\.[0-9]+$/"
+    },
+
+    // Same idea for Feishin's GHCR tags: skip "latest" and the major-only
+    // aliases (e.g. "1"), keep the X.Y and X.Y.Z release tags.
+    {
+      "matchDatasources": ["docker"],
+      "matchDepNames": ["ghcr.io/jeffvli/feishin"],
+      "allowedVersions": "/^[0-9]+\\.[0-9]+(\\.[0-9]+)?$/"
     },
 
     // The github-actions manager proposes updates to files under
