@@ -1,0 +1,39 @@
+{
+  "name": "Feishin",
+  "version": "1.17.0-0",
+  "slug": "feishin",
+  "description": "Web-based music player for Navidrome, Jellyfin and Subsonic — modern UI, smart playlists, lyrics and scrobbling",
+  "arch": [
+    "aarch64"
+  ],
+  "image": "ghcr.io/betaminos/hassio-addons/feishin",
+  "startup": "services",
+  "boot": "auto",
+  "hassio_api": false,
+  "host_network": false,
+  "ingress": false,
+  "panel_icon": "mdi:music-box",
+  "webui": "http://[HOST]:[PORT:9180]",
+  "ports": {
+    "9180/tcp": 42020
+  },
+  "ports_description": {
+    "9180/tcp": "Feishin web UI (music player)"
+  },
+  "options": {
+    "server_name": "Navidrome",
+    "server_type": "navidrome",
+    "server_url": "http://homeassistant.local:4533",
+    "server_lock": false,
+    "legacy_authentication": false,
+    "analytics_disabled": true
+  },
+  "schema": {
+    "server_name": "str?",
+    "server_type": "list(jellyfin|navidrome|subsonic)",
+    "server_url": "str?",
+    "server_lock": "bool",
+    "legacy_authentication": "bool",
+    "analytics_disabled": "bool"
+  }
+}
