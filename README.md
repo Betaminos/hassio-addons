@@ -8,6 +8,7 @@ Home Assistant OS add-on store for self-hosted music tools around
 | Add-on | What it does | Web UI | Upstream | License |
 | ------ | ------------ | ------ | -------- | ------- |
 | [AudioMuse-AI](#audiomuse-ai) | Sonic analysis, clustering, smart playlists | Port 8000 | [NeptuneHub/AudioMuse-AI](https://github.com/NeptuneHub/AudioMuse-AI) | AGPL-3.0 |
+| [Feishin](#feishin) | Web music player for Navidrome, Jellyfin and Subsonic | Port 42020 | [jeffvli/feishin](https://github.com/jeffvli/feishin) | GPL-3.0 |
 | [Maloja](#maloja) | Scrobble database, listening statistics and charts | Port 42010 | [krateng/maloja](https://github.com/krateng/maloja) | GPL-3.0 |
 | [Rewind](#rewind) | Year-in-review listening stats with music playback | Port 42000 | [BernardoGiordano/rewind](https://github.com/BernardoGiordano/rewind) | GPL-3.0 |
 
@@ -22,6 +23,18 @@ build with embedded PostgreSQL). Web UI on port 8000. Point it at your
 Navidrome via the Setup Wizard, then pair it with the
 [AudioMuse-AI Navidrome plugin](https://github.com/NeptuneHub/AudioMuse-AI-NV-plugin)
 for Instant Mix in all Subsonic clients.
+
+### Feishin
+Browser-based music player for Navidrome, Jellyfin and Subsonic
+([jeffvli/feishin](https://github.com/jeffvli/feishin)) — modern UI, a smart
+playlist editor for Navidrome, synchronized lyrics, and scrobbling back to
+the server. The web client plays through the HTML5 web player backend only
+(no MPV backend, no gapless), and it is stateless: server credentials and
+player settings live in each browser's local storage, so the server is
+configured once per browser/device. Web UI on port 42020. With the
+[AudioMuse-AI Navidrome plugin](https://github.com/NeptuneHub/AudioMuse-AI-NV-plugin)
+active on your Navidrome, Feishin's similar-songs and artist-radio requests
+are served by AudioMuse-AI's sonic analysis.
 
 ### Maloja
 Self-hosted music scrobble database with listening statistics and charts —
@@ -57,7 +70,8 @@ folder in `/share/navidrome` (`data_folder: /share/navidrome`), so the live
   updates): open an issue in
   [this repository](https://github.com/Betaminos/hassio-addons/issues).
 - **Bugs in the add-on's behavior**: report those upstream —
-  [AudioMuse-AI](https://github.com/NeptuneHub/AudioMuse-AI/issues),
+  [AudioMuse-AI](https://github.com/NeptuneHub/AudioMuse-AI/issues), 
+  [Feishin](https://github.com/jeffvli/feishin/issues), 
   [Maloja](https://github.com/krateng/maloja/issues),
   [Rewind](https://github.com/BernardoGiordano/rewind/issues). The images
   here ship the upstream software unmodified, so behavioral fixes have to
@@ -71,6 +85,22 @@ folder in `/share/navidrome` (`data_folder: /share/navidrome`), so the live
 3. Pair it with the AudioMuse-AI Navidrome plugin (download `audiomuseai.ndp`
    from the upstream releases and add it in Navidrome) to get Instant Mix
    and similar songs in all Subsonic clients.
+
+## Wiring Feishin to Navidrome
+
+1. On the Feishin add-on's Configuration tab, set `server_url` to your
+   Navidrome address (e.g. `http://<pi-ip>:4533`). The web client runs in
+   the browser, so this address must be reachable from the devices you
+   browse from, not just from the Pi itself. `server_name` and
+   `server_type` prefill the login dialog; `server_lock: true` locks the
+   server settings so only username and password remain editable.
+2. Start the add-on and open `http://<pi-ip>:42020`, then log in with your
+   Navidrome credentials. Repeat the login on each browser/device —
+   settings live in the browser, not on the Pi.
+3. For AudioMuse-AI-powered similar songs and artist radio inside Feishin,
+   enable the AudioMuse-AI plugin on your Navidrome (see
+   [Wiring AudioMuse-AI to Navidrome](#wiring-audiomuse-ai-to-navidrome));
+   Feishin needs no extra setup for it.
 
 ## Wiring Maloja to Navidrome
 
@@ -105,7 +135,7 @@ Upstream releases are tracked by a self-hosted
 [Renovate](https://github.com/renovatebot/renovate) (AGPL-3.0) instance that
 runs as a scheduled GitHub Actions workflow *inside this repository* — no
 third-party app is installed, and it accesses the repo only through a
-least-privilege, repository-scoped token. When AudioMuse-AI or Maloja
+least-privilege, repository-scoped token. When AudioMuse-AI, Feishin or Maloja
 publishes a release, Renovate opens a pull request bumping the version pins
 in the affected add-on's `Dockerfile` and `config.json`; merging it triggers
 CI to rebuild and publish the image. Renovate itself is build tooling only —
@@ -118,6 +148,11 @@ it is not part of any published add-on image or add-on data.
   Source: https://github.com/NeptuneHub/AudioMuse-AI (this image embeds an
   unmodified build of the upstream release pinned in the add-on's
   `Dockerfile`).
+- **Feishin** © jeffvli —
+  [GPL-3.0](https://github.com/jeffvli/feishin/blob/development/LICENSE).
+  Source: https://github.com/jeffvli/feishin (this image embeds an unmodified
+  copy of the official `ghcr.io/jeffvli/feishin` Docker image, at the tag
+  pinned in the add-on's `Dockerfile`).
 - **Maloja** © krateng —
   [GPL-3.0](https://github.com/krateng/maloja/blob/master/LICENSE).
   Source: https://github.com/krateng/maloja (this image embeds an unmodified
