@@ -1,6 +1,6 @@
 {
   "name": "Feishin",
-  "version": "1.17.0-0",
+  "version": "1.17.0-1",
   "slug": "feishin",
   "description": "Web-based music player for Navidrome, Jellyfin and Subsonic — modern UI, smart playlists, lyrics and scrobbling",
   "arch": [
